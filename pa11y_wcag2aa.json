@@ -1,0 +1,11 @@
+{
+	"page": {
+		"viewport": {
+			"width": 1280,
+			"height": 1024
+		}
+	},
+	"ignore": ["notice"],
+	"allowedStandards": ["WCAG2AA"],
+	"standard": "WCAG2AA"
+}
