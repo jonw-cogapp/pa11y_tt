@@ -7,6 +7,7 @@ let pa11y = require('pa11y');
 let async = require('async');
 let markdownReporter = require('pa11y/reporter/markdown');
 
+// Configuration
 let optionsDesktop = {
   viewport: {
     width: 1280,
@@ -24,7 +25,6 @@ let optionsTablet = {
 // Create a pa11y instance for tablet
 let test_tablet = pa11y({
   ignore: ['notice'],
-  // Log what's happening to the console
   log: {
     debug: console.log.bind(console),
     error: console.error.bind(console),
@@ -32,16 +32,12 @@ let test_tablet = pa11y({
   },
   allowedStandards: ['WCAG2AA'],
   page: optionsDesktop,
-
-  // A script to be run on the inital page before Pa11y is run.
-  // beforeScript accepts three parameters, the page object, the pa11y options and a callback
   beforeScript: doLogin
 });
 
 // Create a pa11y instance for desktop
 let test_desktop = pa11y({
   ignore: ['notice'],
-  // Log what's happening to the console
   log: {
     debug: console.log.bind(console),
     error: console.error.bind(console),
@@ -49,18 +45,16 @@ let test_desktop = pa11y({
   },
   allowedStandards: ['WCAG2AA'],
   page: optionsTablet,
-
-  // A script to be run on the inital page before Pa11y is run.
-  // beforeScript accepts three parameters, the page object, the pa11y options and a callback
   beforeScript: doLogin
 });
 
 
-
-
+// doLogin is executed before every single pa11y run
 function doLogin(page, options, next) {
-    // An example function that can be used to make sure changes have been confirmed before continuing to run Pa11y
-    let waitUntil = function(condition, retries, waitOver) {
+    // Define a utility function to wait for a condition before continuing
+    // Once called this will runn recursively for the specified number of retries
+    // After that the callback is executed
+    let waitUntil = (condition, retries, waitOver) => {
       page.evaluate(condition, function(error, result) {
         if (result || retries < 1) {
           // Once the changes have taken place continue with Pa11y testing
@@ -76,19 +70,19 @@ function doLogin(page, options, next) {
 
     // The script to manipulate the page must be run with page.evaluate to be run within the context of the page
     page.evaluate(function() {
-      let user = document.querySelector('#email');
-      let password = document.querySelector('#password');
-      let submit = document.querySelector('form');
+      var user = document.querySelector('#email');
+      var password = document.querySelector('#password');
+      var submit = document.querySelector('form');
 
       user.value = 'bmdw_test_user1@cogapp.com';
       password.value = 'password';
 
       submit.submit();
 
-    }, function() {
+    }, () => {
 
       // Use the waitUntil function to set the condition, number of retries and the callback
-      waitUntil(function() {
+      waitUntil(() => {
         return window.location.href !== 'http://bmdw.arnold.office.cogapp.com/login';
       }, 20, next);
 
@@ -96,6 +90,8 @@ function doLogin(page, options, next) {
 }
 
 async.series({
+  // Perform these actions in sequence, then run the callback
+  // The return result of each run command is assigned to an object property
 
   // Desktop tests
   desktop_dashboard: test_desktop.run.bind(test_desktop,'http://bmdw.arnold.office.cogapp.com/'),
@@ -110,65 +106,37 @@ async.series({
   tablet_add_patient: test_tablet.run.bind(test_tablet,'http://bmdw.arnold.office.cogapp.com/patient/add'),
   tablet_patient_list: test_tablet.run.bind(test_tablet,'http://bmdw.arnold.office.cogapp.com/patient/my/list'),
   tablet_edit_patient: test_tablet.run.bind(test_tablet,'http://bmdw.arnold.office.cogapp.com/patient/update/3')
-}, function(error, results) {
+}, (error, results) => {
+
+  // Results will be an object keyed as above in the series() function
+
+  // Log out an error if pa11y tests failed to complete
   if (error) {
     return console.error(error.message);
   }
 
-  // Write out desktop reports
+  // This could probably be a loop, but it will write out each file after running the results of pa11y through the markdown reporter
 
-  fs.writeFile("pa11y_report_desktop_dashboard.md", markdownReporter.process(results.desktop_dashboard, 'Dashboard'), function(err) {
-      if(err) {
-          return console.log(err);
-      }
-  });
-  fs.writeFile("pa11y_report_desktop_match_list.md", markdownReporter.process(results.desktop_match_list, 'Match list'), function(err) {
-      if(err) {
-          return console.log(err);
-      }
-  });
-  fs.writeFile("pa11y_report_desktop_add_patient.md", markdownReporter.process(results.desktop_add_patient, 'Add patient'), function(err) {
-      if(err) {
-          return console.log(err);
-      }
-  });
-  fs.writeFile("pa11y_report_desktop_patient_list.md", markdownReporter.process(results.desktop_patient_list, 'Patient list'), function(err) {
-      if(err) {
-          return console.log(err);
-      }
-  });
-  fs.writeFile("pa11y_report_desktop_edit_patient.md", markdownReporter.process(results.desktop_edit_patient, 'Edit patient'), function(err) {
-      if(err) {
-          return console.log(err);
-      }
-  });
+  // Write out the desktop reports
+  fs.writeFile("pa11y_report_desktop_dashboard.md", markdownReporter.process(results.desktop_dashboard, 'Dashboard'), (err) => writeError(err));
+  fs.writeFile("pa11y_report_desktop_match_list.md", markdownReporter.process(results.desktop_match_list, 'Match list'), (err) => writeError(err));
+  fs.writeFile("pa11y_report_desktop_add_patient.md", markdownReporter.process(results.desktop_add_patient, 'Add patient'), (err) => writeError(err));
+  fs.writeFile("pa11y_report_desktop_patient_list.md", markdownReporter.process(results.desktop_patient_list, 'Patient list'), (err) => writeError(err));
+  fs.writeFile("pa11y_report_desktop_edit_patient.md", markdownReporter.process(results.desktop_edit_patient, 'Edit patient'), (err) => writeError(err));
 
   // Write out tablet reports
-  fs.writeFile("pa11y_report_tablet_dashboard.md", markdownReporter.process(results.tablet_dashboard, 'Dashboard'), function(err) {
-      if(err) {
+  fs.writeFile("pa11y_report_tablet_dashboard.md", markdownReporter.process(results.tablet_dashboard, 'Dashboard'), (err) => writeError(err));
+  fs.writeFile("pa11y_report_tablet_match_list.md", markdownReporter.process(results.tablet_match_list, 'Match list'), (err) => writeError(err));
+  fs.writeFile("pa11y_report_tablet_add_patient.md", markdownReporter.process(results.tablet_add_patient, 'Add patient'), (err) => writeError(err));
+  fs.writeFile("pa11y_report_tablet_patient_list.md", markdownReporter.process(results.tablet_patient_list, 'Patient list'), (err) => writeError(err));
+  fs.writeFile("pa11y_report_tablet_edit_patient.md", markdownReporter.process(results.tablet_edit_patient, 'Edit patient'), (err) => writeError(err));
+
+  // Log out an error if writing failes
+  function writeError(err) {
+      if (err) {
           return console.log(err);
       }
-  });
-  fs.writeFile("pa11y_report_tablet_match_list.md", markdownReporter.process(results.tablet_match_list, 'Match list'), function(err) {
-      if(err) {
-          return console.log(err);
-      }
-  });
-  fs.writeFile("pa11y_report_tablet_add_patient.md", markdownReporter.process(results.tablet_add_patient, 'Add patient'), function(err) {
-      if(err) {
-          return console.log(err);
-      }
-  });
-  fs.writeFile("pa11y_report_tablet_patient_list.md", markdownReporter.process(results.tablet_patient_list, 'Patient list'), function(err) {
-      if(err) {
-          return console.log(err);
-      }
-  });
-  fs.writeFile("pa11y_report_tablet_edit_patient.md", markdownReporter.process(results.tablet_edit_patient, 'Edit patient'), function(err) {
-      if(err) {
-          return console.log(err);
-      }
-  });
+  }
 });
 
 
